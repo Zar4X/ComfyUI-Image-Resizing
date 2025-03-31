@@ -42,3 +42,21 @@
 ---
 
 ## Typical Use Cases
+Content preparation:
+○ Adapt assets for specific aspect ratios
+○ Create social media templates
+○ Match AI model input requirements
+
+Production workflows:
+○ Batch canvas extensions
+○ Multi-stage upscale preparations
+○ Mask-accurate image editing
+
+
+---
+
+## Pipeline Integration
+Native ComfyUI workflow implementation:
+[Source] ➔ [Analysis] ➔ [Calculation] ➔ [Adjustment] ➔ [Output]
+
+
