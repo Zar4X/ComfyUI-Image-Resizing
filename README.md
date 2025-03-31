@@ -51,12 +51,3 @@ Production workflows:
 ○ Batch canvas extensions
 ○ Multi-stage upscale preparations
 ○ Mask-accurate image editing
-
-
----
-
-## Pipeline Integration
-Native ComfyUI workflow implementation:
-[Source] ➔ [Analysis] ➔ [Calculation] ➔ [Adjustment] ➔ [Output]
-
-
