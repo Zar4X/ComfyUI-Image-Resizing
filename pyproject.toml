@@ -1,0 +1,15 @@
+[project]
+name = "image-resizing"
+description = "Precision dimension control nodes for aspect ratio adjustments and resizing workflows"
+version = "1.0.0"
+license = {file = "LICENSE"}
+dependencies = ["torch>=2.0.0", "Pillow>=10.0.0", "numpy>=1.24.0", "opencv-python>=4.8.0"]
+
+[project.urls]
+Repository = "https://github.com/Zar4X/ComfyUI-Image-Resizing"
+#  Used by Comfy Registry https://comfyregistry.org
+
+[tool.comfy]
+PublisherId = ""
+DisplayName = "ComfyUI-Image-Resizing"
+Icon = ""
