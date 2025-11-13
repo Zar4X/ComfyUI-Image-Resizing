@@ -11,6 +11,7 @@
 - `calculate_upscale_rounds` - Calculate iteration count for multi-stage upscaling
 
 ### 🔧 Resizing & Cropping
+- `smart_image_resize` - Intelligent resizing with min/max constraints, model-based upscaling, reference ratio matching, and standard ratio padding
 - `resize_to_multiple` - Resize images to multiples of specified numbers (stretch/crop)
 - `image_crop_by_percentage` - Precision cropping with percentage/pixel controls
 - `mask_crop_by_percentage` - Synchronized mask cropping with detection modes
@@ -41,6 +42,7 @@
 - **Upscale Rounds**: Calculates iteration count for multi-stage upscaling workflows
 
 ### Processing Nodes
+- **Smart Image Resize**: Intelligent image resizing with min/max resolution constraints, reference ratio matching, model-based or basic upscaling, and standard ratio padding
 - **Resize to Multiple**: Resizes images to multiples of specified numbers (32, 64, etc.)
 - **Image Crop by Percentage**: Precision cropping with 9 position options and offset controls
 - **Mask Crop by Percentage**: Advanced mask-based cropping with detection algorithms
@@ -48,6 +50,7 @@
 
 ## Typical Use Cases
 - Adapting assets for specific aspect ratios
+- Matching images to reference aspect ratios without cropping
 - Creating social media templates
 - Matching AI model input requirements
 - Batch canvas extensions and cropping
