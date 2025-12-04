@@ -7,8 +7,6 @@
 - `image_aspect_ratio_extractor` - Extract aspect ratios with constraints (0.25-4.0 range)
 - `image_resolution_extractor` - Extract specific dimensions (width, height, shortest/longest side)
 - `calculate_aspect_ratio_extension` - Compute pixel extensions for target aspect ratios
-- `calculate_upscale_factor` - Determine optimal scaling ratios
-- `calculate_upscale_rounds` - Calculate iteration count for multi-stage upscaling
 
 ### 🔧 Resizing & Cropping
 - `smart_image_resize` - Intelligent resizing with min/max constraints, model-based upscaling, reference ratio matching, and standard ratio padding
@@ -38,8 +36,6 @@
 - **Aspect Ratio Extractor**: Extracts ratios with constraints, supports rounding to common ratios
 - **Resolution Extractor**: Extracts width, height, shortest, or longest side dimensions
 - **Aspect Ratio Extension**: Calculates pixel extensions needed for target aspect ratios
-- **Upscale Factor**: Determines optimal scaling ratios between source/target dimensions
-- **Upscale Rounds**: Calculates iteration count for multi-stage upscaling workflows
 
 ### Processing Nodes
 - **Smart Image Resize**: Intelligent image resizing with min/max resolution constraints, reference ratio matching, model-based or basic upscaling, and standard ratio padding
@@ -54,7 +50,6 @@
 - Creating social media templates
 - Matching AI model input requirements
 - Batch canvas extensions and cropping
-- Multi-stage upscale preparations
 
 ## Requirements
 - ComfyUI
