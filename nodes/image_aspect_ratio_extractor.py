@@ -23,6 +23,22 @@ class ImageAspectRatioExtractor:
             "required": {
                 "image": ("IMAGE",),
                 "ratio_type": (["round to", "aspect ratio"], {"default": "round to"}),
+                "top_crop": (
+                    "INT",
+                    {"default": 0, "min": 0, "max": 99, "step": 1},
+                ),
+                "bottom_crop": (
+                    "INT",
+                    {"default": 0, "min": 0, "max": 99, "step": 1},
+                ),
+                "left_crop": (
+                    "INT",
+                    {"default": 0, "min": 0, "max": 99, "step": 1},
+                ),
+                "right_crop": (
+                    "INT",
+                    {"default": 0, "min": 0, "max": 99, "step": 1},
+                ),
             }
         }
 
@@ -50,7 +66,9 @@ class ImageAspectRatioExtractor:
         """Clamp the aspect ratio to be within valid range (0.25-4.0)"""
         return max(self.MINIMUM_RATIO, min(self.MAXIMUM_RATIO, ratio))
 
-    def extract_aspect_ratio(self, image, ratio_type):
+    def extract_aspect_ratio(
+        self, image, ratio_type, top_crop, bottom_crop, left_crop, right_crop
+    ):
         """
         Extracts aspect ratio from input images with constraints.
         
@@ -81,11 +99,29 @@ class ImageAspectRatioExtractor:
         if width <= 0 or height <= 0:
             raise ValueError(f"Invalid image dimensions: {width}x{height}")
         
-        # 计算原始宽高比
+        # 计算裁剪后尺寸（根据百分比从四边裁掉）
+        horizontal_crop_pct = (left_crop + right_crop) / 100.0
+        vertical_crop_pct = (top_crop + bottom_crop) / 100.0
+
+        if horizontal_crop_pct >= 1.0 or vertical_crop_pct >= 1.0:
+            raise ValueError(
+                "Crop percentages for opposite sides must sum to less than 100%"
+            )
+
+        crop_left_px = int(width * (left_crop / 100.0))
+        crop_right_px = int(width * (right_crop / 100.0))
+        crop_top_px = int(height * (top_crop / 100.0))
+        crop_bottom_px = int(height * (bottom_crop / 100.0))
+
+        cropped_width = max(1, width - crop_left_px - crop_right_px)
+        cropped_height = max(1, height - crop_top_px - crop_bottom_px)
+
+        # 计算原始与裁剪后的宽高比
         original_ratio = width / height
+        cropped_ratio = cropped_width / cropped_height
         
-        # 应用比例约束
-        clamped_ratio = self.clamp_ratio(original_ratio)
+        # 应用比例约束（基于裁剪后的比例）
+        clamped_ratio = self.clamp_ratio(cropped_ratio)
         
         # 如果原始比例超出范围，发出警告
         if abs(original_ratio - clamped_ratio) > 0.001:
@@ -100,22 +136,26 @@ class ImageAspectRatioExtractor:
                 result = self.MAXIMUM_RATIO_STR
             else:
                 # 对于中间值，尝试找到简单的整数比例
-                # 使用原始尺寸但确保比例在范围内
-                if original_ratio < self.MINIMUM_RATIO:
-                    # 调整到最小比例
+                # 使用裁剪后的尺寸但确保比例在范围内
+                if cropped_ratio < self.MINIMUM_RATIO:
                     result = self.MINIMUM_RATIO_STR
-                elif original_ratio > self.MAXIMUM_RATIO:
-                    # 调整到最大比例
+                elif cropped_ratio > self.MAXIMUM_RATIO:
                     result = self.MAXIMUM_RATIO_STR
                 else:
-                    # 计算最大公约数
-                    gcd = math.gcd(width, height)
-                    result = f"{width//gcd}:{height//gcd}"
+                    gcd = math.gcd(cropped_width, cropped_height)
+                    result = f"{cropped_width//gcd}:{cropped_height//gcd}"
         else:  # "round to"
             common_ratios = self.get_common_ratios()
             # 找到最接近的常见比例（基于约束后的比例）
             closest_ratio = min(common_ratios, key=lambda x: abs(x[1] - clamped_ratio))
             result = closest_ratio[0]
         
-        print(f"Image resolution: {width}x{height}, Original ratio: {original_ratio:.3f}, Clamped ratio: {clamped_ratio:.3f}, {ratio_type}: {result}")
+        print(
+            f"Image resolution: {width}x{height}, "
+            f"Cropped resolution: {cropped_width}x{cropped_height}, "
+            f"Original ratio: {original_ratio:.3f}, "
+            f"Cropped ratio: {cropped_ratio:.3f}, "
+            f"Clamped ratio: {clamped_ratio:.3f}, "
+            f"{ratio_type}: {result}"
+        )
         return (result,) 

@@ -9,31 +9,12 @@ class ImageCropByPercentage:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "use_pixel": ("BOOLEAN", {"default": False}),
                 "image": ("IMAGE",),
-                "width": ("INT", {"default": 100, "min": 0, "max": 9999, "step": 1}),
-                "height": ("INT", {"default": 100, "min": 0, "max": 9999, "step": 1}),
-                "position": (
-                    [
-                        "top-left",
-                        "top-center",
-                        "top-right",
-                        "right-center",
-                        "bottom-right",
-                        "bottom-center",
-                        "bottom-left",
-                        "left-center",
-                        "center",
-                    ],
-                ),
-                "x_offset": (
-                    "INT",
-                    {"default": 0, "min": -9999, "max": 9999, "step": 1},
-                ),
-                "y_offset": (
-                    "INT",
-                    {"default": 0, "min": -9999, "max": 9999, "step": 1},
-                ),
+                "use_pixel": ("BOOLEAN", {"default": False}),
+                "top": ("INT", {"default": 0, "min": 0, "max": 9999, "step": 1}),
+                "bottom": ("INT", {"default": 0, "min": 0, "max": 9999, "step": 1}),
+                "left": ("INT", {"default": 0, "min": 0, "max": 9999, "step": 1}),
+                "right": ("INT", {"default": 0, "min": 0, "max": 9999, "step": 1}),
             }
         }
 
@@ -50,7 +31,7 @@ class ImageCropByPercentage:
     FUNCTION = "image_crop"
     CATEGORY = "Image Resizing/Crop Image"
 
-    def image_crop(self, image, use_pixel, width, height, position, x_offset, y_offset):
+    def image_crop(self, image, use_pixel, top, bottom, left, right):
         # Convert tensor to PIL image for easier manipulation
         pil_images = [tensor2pil(img) for img in image]
         cropped_images = []
@@ -58,66 +39,48 @@ class ImageCropByPercentage:
         crop_coords_y = []
 
         for img_index, pil_img in enumerate(pil_images):
-            ow, oh = pil_img.size
-            print(f"Original Image at index {img_index} size: {ow}x{oh}")
+            img_w, img_h = pil_img.size
+            print(f"Original Image at index {img_index} size: {img_w}x{img_h}")
 
             if use_pixel:
-                new_width = min(ow, width)
-                new_height = min(oh, height)
-                x_offset_pixel = min(ow, max(-ow, x_offset))
-                y_offset_pixel = min(oh, max(-oh, y_offset))
+                # Use pixel values directly
+                crop_left = min(left, img_w)
+                crop_right = min(right, img_w)
+                crop_top = min(top, img_h)
+                crop_bottom = min(bottom, img_h)
             else:
-                new_width = min(ow, round(ow * (width / 100.0)))
-                new_height = min(oh, round(oh * (height / 100.0)))
-                x_offset_pixel = round(ow * (x_offset / 100.0))
-                y_offset_pixel = round(oh * (y_offset / 100.0))
+                # Convert percentage to pixels
+                crop_left = int(left / 100 * img_w)
+                crop_right = int(right / 100 * img_w)
+                crop_top = int(top / 100 * img_h)
+                crop_bottom = int(bottom / 100 * img_h)
+
+            # Calculate crop box
+            x1 = crop_left
+            y1 = crop_top
+            x2 = img_w - crop_right
+            y2 = img_h - crop_bottom
+
+            # Ensure valid crop box
+            x1 = max(0, min(x1, img_w))
+            y1 = max(0, min(y1, img_h))
+            x2 = max(x1, min(x2, img_w))
+            y2 = max(y1, min(y2, img_h))
 
             print(
-                f"Computed for cropping - width: {new_width}, height: {new_height}, x_offset: {x_offset_pixel}, y_offset: {y_offset_pixel}"
+                f"Crop mode: {'pixel' if use_pixel else 'percentage'} - top:{top} bottom:{bottom} left:{left} right:{right}"
+            )
+            print(
+                f"Cropped Image at index {img_index} from ({x1}, {y1}) to ({x2}, {y2}), resulting size: {x2-x1}x{y2-y1}"
             )
 
-            x = 0
-            y = 0
-
-            if "center" in position:
-                x = round((ow - new_width) / 2)
-                y = round((oh - new_height) / 2)
-            if "top" in position:
-                y = 0
-            if "bottom" in position:
-                y = oh - new_height
-            if "left" in position:
-                x = 0
-            if "right" in position:
-                x = ow - new_width
-
-            x += x_offset_pixel
-            y += y_offset_pixel
-
-            x2 = x + new_width
-            y2 = y + new_height
-
-            # Ensure x and y are within bounds
-            if x2 > ow:
-                x2 = ow
-            if x < 0:
-                x = 0
-            if y2 > oh:
-                y2 = oh
-            if y < 0:
-                y = 0
-
-            # Crop the image using computed coordinates
-            cropped_img = pil_img.crop((x, y, x2, y2))
+            # Crop the image
+            cropped_img = pil_img.crop((x1, y1, x2, y2))
 
             # Convert cropped PIL image back to tensor
             cropped_images.append(pil2tensor(cropped_img))
-            crop_coords_x.append(x)
-            crop_coords_y.append(y)
-
-            print(
-                f"Cropped Image at index {img_index} from ({x}, {y}) to ({x2}, {y2}), resulting size: {cropped_img.size}"
-            )
+            crop_coords_x.append(x1)
+            crop_coords_y.append(y1)
 
         # Combine all cropped images into a single tensor
         cropped_images_tensor = torch.cat(cropped_images, dim=0)
