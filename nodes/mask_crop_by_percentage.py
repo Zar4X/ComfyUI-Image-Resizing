@@ -19,6 +19,42 @@ from .ImgMods import (
 
 class MaskCropByPercentage:
     @staticmethod
+    def _clamp_pair_to_size(start_crop, end_crop, size):
+        if size <= 1:
+            return 0, 0
+        start_crop = max(0, min(start_crop, size - 1))
+        end_crop = max(0, min(end_crop, size - 1 - start_crop))
+        return start_crop, end_crop
+
+    @staticmethod
+    def _value_to_pixels(value, size, use_pixel):
+        if use_pixel:
+            return max(0, int(value))
+        clamped_percent = max(0.0, min(float(value), 100.0))
+        # Percentage mode: each side (left/right/top/bottom) is defined over the half axis.
+        # Example: left=100 means "crop from left edge to center" => half of the region width.
+        return int(clamped_percent / 100.0 * (size / 2.0))
+
+    @staticmethod
+    def _normalize_crop_inputs(use_pixel, top, bottom, left, right):
+        if use_pixel:
+            return max(0, top), max(0, bottom), max(0, left), max(0, right), False
+        n_top = max(0, min(100, top))
+        n_bottom = max(0, min(100, bottom))
+        n_left = max(0, min(100, left))
+        n_right = max(0, min(100, right))
+        was_clamped = (n_top, n_bottom, n_left, n_right) != (top, bottom, left, right)
+        return n_top, n_bottom, n_left, n_right, was_clamped
+
+    @staticmethod
+    def _ensure_non_empty_crop_box(x1, y1, x2, y2, max_w, max_h):
+        x1 = max(0, min(x1, max_w - 1))
+        y1 = max(0, min(y1, max_h - 1))
+        x2 = max(x1 + 1, min(x2, max_w))
+        y2 = max(y1 + 1, min(y2, max_h))
+        return x1, y1, x2, y2
+
+    @staticmethod
     def find_all_regions(image):
         """Find all bounding rectangles for all connected components in the mask."""
         cv2_image = pil2cv2(image)
@@ -98,10 +134,16 @@ class MaskCropByPercentage:
         round_to_multiple,
         crop_box=None,
     ):
+        top, bottom, left, right, was_clamped = self._normalize_crop_inputs(
+            use_pixel, top, bottom, left, right
+        )
         ret_images = []
         ret_masks = []
         l_images = []
         l_masks = []
+
+        if image.dim() == 3:
+            image = torch.unsqueeze(image, 0)
 
         for l in image:
             l_images.append(torch.unsqueeze(l, 0))
@@ -142,16 +184,25 @@ class MaskCropByPercentage:
             canvas_width, canvas_height = (
                 tensor2pil(torch.unsqueeze(image[0], 0)).convert("RGB").size
             )
-            if use_pixel:
-                crop_top_pixels = min(top, canvas_height)
-                crop_bottom_pixels = min(bottom, canvas_height)
-                crop_left_pixels = min(left, canvas_width)
-                crop_right_pixels = min(right, canvas_width)
-            else:
-                crop_top_pixels = int(top / 100 * canvas_height)
-                crop_bottom_pixels = int(bottom / 100 * canvas_height)
-                crop_left_pixels = int(left / 100 * canvas_width)
-                crop_right_pixels = int(right / 100 * canvas_width)
+            if w <= 0 or h <= 0:
+                x, y, w, h = 0, 0, canvas_width, canvas_height
+
+            crop_top_pixels = self._value_to_pixels(top, h, use_pixel)
+            crop_bottom_pixels = self._value_to_pixels(bottom, h, use_pixel)
+            crop_left_pixels = self._value_to_pixels(left, w, use_pixel)
+            crop_right_pixels = self._value_to_pixels(right, w, use_pixel)
+
+            crop_left_pixels, crop_right_pixels = self._clamp_pair_to_size(
+                crop_left_pixels, crop_right_pixels, w
+            )
+            crop_top_pixels, crop_bottom_pixels = self._clamp_pair_to_size(
+                crop_top_pixels, crop_bottom_pixels, h
+            )
+            if was_clamped:
+                print(
+                    "Percentage crop values are clamped to 0-100. "
+                    f"Received top:{top} bottom:{bottom} left:{left} right:{right}."
+                )
 
             x1 = max(x + crop_left_pixels, 0)
             y1 = max(y + crop_top_pixels, 0)
@@ -167,6 +218,9 @@ class MaskCropByPercentage:
                 x2 = x1 + width
                 y2 = y1 + height
 
+            x1, y1, x2, y2 = self._ensure_non_empty_crop_box(
+                x1, y1, x2, y2, canvas_width, canvas_height
+            )
             crop_box = (x1, y1, x2, y2)
 
             # Draw red rectangles for all detected regions (with crop applied)
@@ -182,23 +236,18 @@ class MaskCropByPercentage:
                     space_bottom = canvas_height - (rect_y + rect_h)
 
                     # Calculate actual crop pixels for this rectangle
-                    if use_pixel:
-                        actual_crop_left = min(left, space_left)
-                        actual_crop_right = min(right, space_right)
-                        actual_crop_top = min(top, space_top)
-                        actual_crop_bottom = min(bottom, space_bottom)
-                    else:
-                        # Calculate percentage-based crop from rectangle size
-                        crop_left_px = int(left / 100 * rect_w)
-                        crop_right_px = int(right / 100 * rect_w)
-                        crop_top_px = int(top / 100 * rect_h)
-                        crop_bottom_px = int(bottom / 100 * rect_h)
-
-                        # Clamp to available space
-                        actual_crop_left = min(crop_left_px, space_left)
-                        actual_crop_right = min(crop_right_px, space_right)
-                        actual_crop_top = min(crop_top_px, space_top)
-                        actual_crop_bottom = min(crop_bottom_px, space_bottom)
+                    actual_crop_left = min(
+                        self._value_to_pixels(left, rect_w, use_pixel), space_left
+                    )
+                    actual_crop_right = min(
+                        self._value_to_pixels(right, rect_w, use_pixel), space_right
+                    )
+                    actual_crop_top = min(
+                        self._value_to_pixels(top, rect_h, use_pixel), space_top
+                    )
+                    actual_crop_bottom = min(
+                        self._value_to_pixels(bottom, rect_h, use_pixel), space_bottom
+                    )
 
                     # Calculate cropped rectangle for drawing
                     cropped_x = max(0, rect_x + actual_crop_left)
@@ -263,25 +312,25 @@ class MaskCropByPercentage:
                 space_bottom = canvas_height - (rect_y + rect_h)
 
                 # Calculate actual crop pixels for this rectangle
-                if use_pixel:
-                    # Use fixed pixel values, clamped to available space
-                    actual_crop_left = min(left, space_left)
-                    actual_crop_right = min(right, space_right)
-                    actual_crop_top = min(top, space_top)
-                    actual_crop_bottom = min(bottom, space_bottom)
-                else:
-                    # Calculate percentage-based crop, clamped to available space
-                    # Use rectangle dimensions for percentage calculation
-                    crop_left_px = int(left / 100 * rect_w)
-                    crop_right_px = int(right / 100 * rect_w)
-                    crop_top_px = int(top / 100 * rect_h)
-                    crop_bottom_px = int(bottom / 100 * rect_h)
+                actual_crop_left = min(
+                    self._value_to_pixels(left, rect_w, use_pixel), space_left
+                )
+                actual_crop_right = min(
+                    self._value_to_pixels(right, rect_w, use_pixel), space_right
+                )
+                actual_crop_top = min(
+                    self._value_to_pixels(top, rect_h, use_pixel), space_top
+                )
+                actual_crop_bottom = min(
+                    self._value_to_pixels(bottom, rect_h, use_pixel), space_bottom
+                )
 
-                    # Clamp to available space
-                    actual_crop_left = min(crop_left_px, space_left)
-                    actual_crop_right = min(crop_right_px, space_right)
-                    actual_crop_top = min(crop_top_px, space_top)
-                    actual_crop_bottom = min(crop_bottom_px, space_bottom)
+                actual_crop_left, actual_crop_right = self._clamp_pair_to_size(
+                    actual_crop_left, actual_crop_right, rect_w
+                )
+                actual_crop_top, actual_crop_bottom = self._clamp_pair_to_size(
+                    actual_crop_top, actual_crop_bottom, rect_h
+                )
 
                 # Crop rectangle (clamped to boundaries)
                 rect_x1 = max(0, rect_x + actual_crop_left)
@@ -311,6 +360,9 @@ class MaskCropByPercentage:
                         rect_y1 = canvas_height - height
                         rect_y2 = canvas_height
 
+                rect_x1, rect_y1, rect_x2, rect_y2 = self._ensure_non_empty_crop_box(
+                    rect_x1, rect_y1, rect_x2, rect_y2, canvas_width, canvas_height
+                )
                 individual_crop_box = (rect_x1, rect_y1, rect_x2, rect_y2)
                 all_crop_boxes.append(individual_crop_box)
 
