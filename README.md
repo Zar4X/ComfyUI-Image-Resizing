@@ -7,6 +7,8 @@
 - `image_aspect_ratio_extractor` - Extract aspect ratios with constraints (0.25-4.0 range)
 - `image_resolution_extractor` - Extract specific dimensions (width, height, shortest/longest side)
 - `calculate_aspect_ratio_extension` - Compute pixel extensions for target aspect ratios
+- `calculate_upscale_factor` - Determine optimal scaling ratios
+- `calculate_upscale_rounds` - Calculate iteration count for multi-stage upscaling
 
 ### 🔧 Resizing & Cropping
 - `smart_image_resize` - Intelligent resizing with min/max constraints, model-based upscaling, reference ratio matching, and standard ratio padding
@@ -14,6 +16,7 @@
 - `image_crop_by_percentage` - Precision cropping with percentage/pixel controls
 - `mask_crop_by_percentage` - Synchronized mask cropping with detection modes
 - `extend_canvas_by_percentage` - Expand canvas with color fill and feathering
+- `apply_mask_to_image` - Apply mask as alpha channel (black mask areas become transparent)
 
 ## Key Features
 - **Mathematical Precision** - Pixel-perfect calculations with rounding control
@@ -36,6 +39,8 @@
 - **Aspect Ratio Extractor**: Extracts ratios with constraints, supports rounding to common ratios
 - **Resolution Extractor**: Extracts width, height, shortest, or longest side dimensions
 - **Aspect Ratio Extension**: Calculates pixel extensions needed for target aspect ratios
+- **Upscale Factor**: Determines optimal scaling ratios between source/target dimensions
+- **Upscale Rounds**: Calculates iteration count for multi-stage upscaling workflows
 
 ### Processing Nodes
 - **Smart Image Resize**: Intelligent image resizing with min/max resolution constraints, reference ratio matching, model-based or basic upscaling, and standard ratio padding
@@ -43,6 +48,11 @@
 - **Image Crop by Percentage**: Precision cropping with 9 position options and offset controls
 - **Mask Crop by Percentage**: Advanced mask-based cropping with detection algorithms
 - **Extend Canvas by Percentage**: Expands canvas with color fill, feathering, and mask support
+- **Apply Mask to Image**: Combines image + mask into RGBA output, using mask as transparency (white=opaque, black=transparent)
+
+## Behavior Notes
+- **Percentage crop semantics**: `left/right/top/bottom` percentages are defined over each side's half-axis (`100` reaches the center from that side).
+- **Input limits by mode**: with `use_pixel=true`, crop values are not upper-bounded; with `use_pixel=false`, crop inputs are clamped to `0-100`.
 
 ## Typical Use Cases
 - Adapting assets for specific aspect ratios
@@ -50,6 +60,7 @@
 - Creating social media templates
 - Matching AI model input requirements
 - Batch canvas extensions and cropping
+- Multi-stage upscale preparations
 
 ## Requirements
 - ComfyUI
